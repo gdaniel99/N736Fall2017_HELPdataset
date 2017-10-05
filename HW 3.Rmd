@@ -1,0 +1,153 @@
+---
+title: "HW 3"
+author: "Gaea Daniel"
+date: "10/4/2017"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tableone)
+library(Matrix)
+library(survey)
+library(survival)
+library(testthat)
+library(dummies)
+library(grid)
+library(Matching)
+library(reshape2)
+library(ggplot2)
+library(knitr)
+library(geepack)
+library(lme4)
+library(tidyverse)
+library(haven)
+library(lattice)
+```
+
+## Summary Statistics for the Health Evaluation and Linkage to Primary Care (HELP) dataset
+
+Because the data are not normally distributed and are not expected to be, non-parametric statistics are appropriate for data interpretation. Furthermore, Levene's test shows significance indicating homoscedasticity and the appropriateness of non-parametric statistics.
+
+### Table 1 (Baseline Data Overall)
+```{r}
+######Creating Table 1 for baseline data overall#####
+#Load data
+help.spss <- read_csv("helpmkh.csv")
+data(help.spss)
+
+#Check variables
+head(help.spss)
+
+#Make categorical variables factors
+varsToFactor <- c("treat","female","homeless","f1a","f1b","f1c","f1d","f1e","f1f","f1g","f1h","f1i","f1j","f1k","f1l","f1m","f1n","f1o","f1p","f1q","f1r","f1s","f1t","satreat","substance","drinkstatus","anysubstatus","linkstatus","g1b1")
+
+#Create a variable list
+dput(names(help.spss))
+vars <- c("treat","age","female","pss_fr","racegrp","homeless","a15a","a15b","d1","e2b","g1b","i1","i2","pcs","mcs","f1a","f1b","f1c","f1d","f1e","f1f","f1g","f1h","f1i","f1j","f1k","f1l","f1m","f1n","f1o","f1p","f1q","f1r","f1s","f1t","cesd","indtot","drugrisk","sexrisk","satreat","substance","drinkstatus","daysdrink","anysubstatus","daysanysub","linkstatus","e2b1","g1b1","i11")
+
+#Create Table 1
+tableOne <- CreateTableOne(vars = vars, data = help.spss)
+
+tableOne
+```
+```{r}
+summary (help.spss)
+```
+
+### Table 1 (Stratification by Treatment Group)
+```{r}
+######Creating Table 1 for stratification by treatment group#####
+#Load data
+help.spss <- read_csv("helpmkh.csv")
+data(help.spss)
+
+#Check variables
+head(help.spss)
+
+#Make categorical variables factors
+varsToFactor <- c("treat","female","homeless","f1a","f1b","f1c","f1d","f1e","f1f","f1g","f1h","f1i","f1j","f1k","f1l","f1m","f1n","f1o","f1p","f1q","f1r","f1s","f1t","satreat","substance","drinkstatus","anysubstatus","linkstatus","g1b1")
+
+#Create a variable list
+dput(names(help.spss))
+vars <- c("treat","age","female","pss_fr","racegrp","homeless","a15a","a15b","d1","e2b","g1b","i1","i2","pcs","mcs","f1a","f1b","f1c","f1d","f1e","f1f","f1g","f1h","f1i","f1j","f1k","f1l","f1m","f1n","f1o","f1p","f1q","f1r","f1s","f1t","cesd","indtot","drugrisk","sexrisk","satreat","substance","drinkstatus","daysdrink","anysubstatus","daysanysub","linkstatus","e2b1","g1b1","i11")
+
+#Create Table 1 stratified by treat
+tableOne <- CreateTableOne(vars = vars, strata = c("treat"), data = help.spss)
+
+tableOne
+```
+
+## Statistical Analyses
+
+The sample was stratified based on whether adults received the usual (0) treatment (treat) or the HELP clinic (1) treatment (treat) from an inpatient detoxification unit. The treat variable was recoded as factors Usual and HELP to analyze the data. The two treatment groups were compared to see if and what statistically significant differences existed. Two of the three significant categories [How many times hospitalized for medical problems (d1) and Post-detox linkage to primary care (linkstatus)] were analyzed. The drug type from which the adult was detoxing (substance) was not analyzed because the variable is categorical. Histograms were created to visualize the distribution of the data, and Levene’s test was conducted to analyze variance. Kruskal-Wallis tests were conducted to determine statistically significant differences between treat and d1 and treat and linkstatus. The Two-Sample Wilcoxon Test (also known as Wilcoxon rank sum test or Mann-Whitney test) was also conducted to compare the independent groups whose data are not normally distributed. R Commander (Rcmdr) version 2.4-0 within RStudion version 1.0.153 was used to conduct the analyses. The code can be found at https://github.com/gdaniel99/N736Fall2017_HELPdataset.git in the HW 3.Rmd file.
+
+```{r}
+#To access R-commander
+library(Rcmdr)
+library(splines)
+library(RcmdrMisc)
+library(car)
+```
+
+```{r}
+#To change treat to factor
+help.spss <- within(help.spss, {
+  treat <- factor(treat, labels=c('Usual','HELP'))
+})
+```
+
+```{r}
+#Histogram; lifetime hospitalizations by treatment grp
+with(help.spss, Hist(d1, groups=treat, scale="frequency", 
+  breaks="Sturges", col="darkgray"))
+```
+
+```{r}
+#Histogram; post-detox link to primary care by treatment grp
+with(help.spss, Hist(linkstatus, groups=treat, scale="frequency",
+   breaks="Sturges", col="darkgray"))
+```
+
+```{r}
+#Levene's test for variance; lifetime hospitalizations by treatment grp
+with(help.spss, tapply(d1, treat, var, na.rm=TRUE))
+leveneTest(d1 ~ treat, data=help.spss, center="median")
+```
+
+```{r}
+#Levene's test for variance; post-detox link to primary care by treatment grp
+with(help.spss, tapply(linkstatus, treat, var, na.rm=TRUE))
+leveneTest(linkstatus ~ treat, data=help.spss, center="median")
+```
+
+```{r}
+#Kruskal-Wallis Test; lifetime hospitalizations by treatment grp
+with(help.spss, tapply(d1, treat, median, na.rm=TRUE))
+kruskal.test(d1 ~ treat, data=help.spss)
+```
+```{r}
+#Kruskal-Wallis Test; post-detox link to primary care by treatment grp
+with(help.spss, tapply(linkstatus, treat, median, na.rm=TRUE))
+kruskal.test(linkstatus ~ treat, data=help.spss)
+```
+
+```{r}
+#Two-sample Wilcoxon Test; lifetime hospitalizations by treatment grp
+with(help.spss, tapply(d1, treat, median, na.rm=TRUE))
+wilcox.test(d1 ~ treat, alternative="two.sided", data=help.spss)
+```
+
+```{r}
+#Two-sample Wilcoxon Test; post-detox link to primary care by treatment grp
+with(help.spss, tapply(linkstatus, treat, median, na.rm=TRUE))
+wilcox.test(linkstatus ~ treat, alternative="two.sided", 
+  data=help.spss)
+```
+
+## Results
+
+The overall sample included 453 adults ranging in age from 19 to 60 years old. Consisting mostly of males (76%), half of the sample was homeless with the majority of the sample being non-white (63%). The sample was divided into two groups: 228 adults received the usual treatment and 225 adults received the HELP clinic (intervention) treatment. Of all the variables observed, how many times hospitalized for medical problems (d1), post-detox linkage to primary care (linkstatus), and the drug type from which the adult was detoxing (substance) showed a significantly statistical difference between the treatment groups. After further analyzing d1 and linkstatus, it can be concluded that when adults are in an inpatient detoxification unit and the HELP clinic treatment is implemented, the adult is more likely to see a primary care provider after detoxification.

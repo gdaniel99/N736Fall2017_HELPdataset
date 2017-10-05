@@ -1,7 +1,7 @@
 # =====================================
 #
 # loading the HELP dataset with formatting 
-# and lebeling - the codebook has been
+# and labeling - the codebook has been
 # applied - see helpmkh.*
 #
 # dated 09/20/2017
