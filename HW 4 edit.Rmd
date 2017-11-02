@@ -1,0 +1,185 @@
+---
+title: "HW 4"
+author: "Gaea Daniel"
+date: "10/18/2017"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tableone)
+library(Matrix)
+library(survey)
+library(survival)
+library(testthat)
+library(dummies)
+library(grid)
+library(Matching)
+library(reshape2)
+library(ggplot2)
+library(knitr)
+library(geepack)
+library(lme4)
+library(tidyverse)
+library(haven)
+library(lattice)
+
+#Load data
+help.spss <- read_csv("helpmkh.csv")
+data(help.spss)
+```
+
+```{r}
+#To access R-commander
+library(Rcmdr)
+library(splines)
+library(RcmdrMisc)
+library(car)
+```
+
+### Perform a Simple Linear Regression for:
+OUTCOME variable indtot: "Inventory of Drug Use Consequences (InDue) total score - Baseline"
+PREDICTOR variable mcs: "SF36 Mental Composite Score - Baseline"
+
+```{r}
+#Simple linear regression
+RegModel.1 <- lm(indtot~mcs, data=helpmkh)
+summary(RegModel.1)
+```
+
+Decide if you want to transform either variable indtot or mcs and if so, what transformation you applied and why.
+
+Histograms were used to check the distribution of indtot and mcs. Mcs had a fairly normal distribution, but indtot was clearly left-skewed. Transformations (log, natural log, the mathematical constant, and square root) of indtot were created to normalize the distribution.
+```{r}
+#Histogram for indtot to check distribution
+with(helpmkh, Hist(indtot, scale="frequency", breaks="Sturges", 
+  col="darkgray"))
+
+#Histogram for mcs to check for distribution
+with(helpmkh, Hist(mcs, scale="frequency", breaks="Sturges", 
+  col="darkgray"))
+
+#Log transformation and histogram for indtot
+helpmkh$indtotlog <- with(helpmkh, log10(indtot))
+with(helpmkh, Hist(indtotlog, scale="frequency", 
+  breaks="Sturges", col="darkgray"))
+
+#Natural log transformation and histogram for indtot
+helpmkh$indtotlog <- with(helpmkh, log(indtot))
+with(helpmkh, Hist(indtotlog, scale="frequency", 
+  breaks="Sturges", col="darkgray"))
+
+#e transformation and histogram for indtot
+helpmkh$indtote <- with(helpmkh, exp(indtot))
+with(helpmkh, Hist(indtote, scale="frequency", breaks="Sturges", 
+  col="darkgray"))
+
+#Square root transformation and histogram for indtot
+helpmkh$indtotsqrt <- with(helpmkh, sqrt(indtot))
+with(helpmkh, Hist(indtotsqrt, scale="frequency", 
+  breaks="Sturges", col="darkgray"))
+```
+
+The square root transformation of indtot appeared to normalize the indtot variable the best and was used for the simple linear regression.
+
+```{r}
+#Simple linear regression with square root transformation of indtot and mcs
+RegModel.5 <- lm(indtotsqrt~mcs, data=helpmkh)
+summary(RegModel.5)
+```
+
+### Perform regression diagnostics:
+Check the normality of the residuals (histogram and Q-Q plots)
+
+```{r}
+#Histogram and Q-Q plots for indtot
+with(helpmkh, Hist(indtot, scale="frequency", breaks="Sturges", 
+  col="darkgray"))
+with(helpmkh, qqPlot(indtot, dist="norm", id.method="y", id.n=2, 
+  labels=rownames(helpmkh)))
+
+#Histogram and Q-Q plots for mcs
+with(helpmkh, Hist(mcs, scale="frequency", breaks="Sturges", 
+  col="darkgray"))
+with(helpmkh, qqPlot(mcs, dist="norm", id.method="y", id.n=2, 
+  labels=rownames(helpmkh)))
+```
+
+Check for linearity - is there any systematic relationship between the residuals and the predicted (or fitted) values? No
+
+```{r}
+#Whitout the line
+scatterplot(indtot~mcs, reg.line=FALSE, smooth=FALSE, 
+  spread=FALSE, boxplots=FALSE, span=0.5, ellipse=FALSE, 
+  levels=c(.5, .9), data=helpmkh)
+
+#With the line
+scatterplot(indtot~mcs, reg.line=lm, smooth=FALSE, spread=FALSE, 
+  boxplots=FALSE, span=0.5, ellipse=FALSE, levels=c(.5, .9), 
+  data=helpmkh)
+```
+
+Homoscedasticity - plot of standardized residuals versus fitted values - this is known as a "Scale-Location" graph. Check for outliers and data points with high leverage or influence: outliers are often identified with standardized residuals > 3 (or <-3) and influential observations are often identified using Cook's D
+
+```{r}
+# Change the layout to 2x2 to accommodate all plots
+par(mfrow=c(2,2))
+par(mar = rep(2, 4))
+ 
+# Diagnostic Plots
+plot(RegModel.5)
+```
+
+    Provide a summary of the regression results.
+        provide a FIGURE of the model, in this case a scatterplot with the fitted line overlaid and 95% confidence intervals if you can
+        Make a TABLE presenting the fitted regression model (coefficients and tests of significance for those coefficients)
+        describe the variance explained by the model (based on r2)
+        describe the model itself based on the y-intercept and slope terms
+        note any limitations or issues with the model fit or interpretation of the model
+See above
+
+    Perform a One-way ANOVA for:
+        OUTCOME variable indtot: "Inventory of Drug Use Consequences (InDue) total score - Baseline"
+        GROUP variable racegrp: "Racial Group of Respondent"
+        I would suggest merging "other" and "hispanic" together and create a 3-group variable for race, since the "other" category is only about 6% of the sample.
+        options - you can use either an ANOVA or GLM modeling approach
+        if the GROUP variable is significant, also perform post hoc tests - use some kind of pairwise error rate adjustment (i.e. bonferroni, sidak, Tukey's HSD, etc) - be sure to report which one you used and why
+Bonferroni is used because the significant difference may not exist between all conditions.
+        
+```{r}
+#One-way ANOVA
+AnovaModel.7 <- aov(indtot ~ racegrp, data=helpmkh)
+summary(AnovaModel.7)
+with(helpmkh, numSummary(indtot, groups=racegrp, 
+  statistics=c("mean", "sd")))
+
+#Bonferroni
+outlierTest(AnovaModel.7)
+```
+
+    Perform model diagnostics:
+        homoscedasticity - look at a test for equal variance (Levene's test or Bartlett's test).
+        if this test of equal variances fails, you may want to report a modified F-test (e.g. Welch's test)
+        Present a summary of the ANOVA results.
+
+```{r}
+#Bartlett's test
+with(helpmkh, tapply(indtot, racegrp, var, na.rm=TRUE))
+bartlett.test(indtot ~ racegrp, data=helpmkh)
+```
+    
+        Make a FIGURE of the group mean differences - either an error-bar plot or a series of boxplots one for each group to show the group differences in the outcome
+        
+```{r}
+#Boxplot
+with(helpmkh, tapply(indtot, treat, var, na.rm=TRUE))
+leveneTest(indtot ~ treat, data=helpmkh, center="median")
+Boxplot(indtot~racegrp, data=helpmkh, id.method="y")
+```
+
+        Make a TABLE presenting the ANOVA results
+        describe the model results - was the GROUP (racegrp) significant? Yes
+        If GROUP is significant, what did the post hoc tests reveal? The post hoc test (Bonferonni) revealed that it was not.

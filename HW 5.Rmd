@@ -1,0 +1,61 @@
+---
+title: "HW 5"
+author: "Gaea Daniel"
+date: "11/01/2017"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(haven)
+
+#Load data
+help.spss <- read_csv("helpmkh.csv")
+data(help.spss)
+
+#To access R-commander
+library(Rcmdr)
+library(splines)
+library(RcmdrMisc)
+library(car)
+
+#Mean center continuous variables 
+help.spss$mcs_new <- with(help.spss, mcs-mean(mcs))
+help.spss$indtot_new <- with(help.spss, indtot-mean(indtot))
+help.spss$pss_fr_new <- with(help.spss, pss_fr-mean(pss_fr))
+
+#Linear regression model 
+RegModel.3 <- lm(indtot_new~mcs_new+pss_fr_new, data=help.spss)
+summary(RegModel.3)
+
+#"Effect plot"
+library(sjPlot)
+m3f <- lm(indtot_new ~ pss_fr_new * mcs_new, data=help.spss)
+sjPlot::sjp.int(m3f, type="eff",
+        show.ci=TRUE,
+        facet.grid=TRUE)
+```
+I am unable to run Levene's or Bartlett's Tests to test for homogeneity of variance because both variables are continuous.
+
+```{r}
+#To make female variable a factor
+help.spss <- within(help.spss, {
+  female_factor <- factor(female, labels=c('male','female'))
+})
+names(help.spss) <- make.names(names(help.spss))
+
+#To check for homogeniety of variance for indtot and female
+with(help.spss, tapply(indtot_new, female_factor, var, na.rm=TRUE))
+leveneTest(indtot_new ~ female_factor, data=help.spss, center="mean")
+
+#Effect plot
+library(sjPlot)
+m3f <- lm(indtot_new ~ female * mcs_new, data=help.spss)
+sjPlot::sjp.int(m3f, type="eff",
+        show.ci=TRUE,
+        facet.grid=TRUE)
+```
