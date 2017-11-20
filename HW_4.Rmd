@@ -3,9 +3,9 @@ title: "HW 4"
 author: "Gaea Daniel"
 date: "10/18/2017"
 output:
-  word_document: default
-  pdf_document: default
   html_document: default
+  pdf_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -169,6 +169,15 @@ outlierTest(AnovaModel.7)
 #Bartlett's test
 with(helpmkh, tapply(indtot, racegrp, var, na.rm=TRUE))
 bartlett.test(indtot ~ racegrp, data=helpmkh)
+
+#Levene's test
+with(helpmkh, tapply(indtot, racegrp, var, na.rm=TRUE))
+leveneTest(indtot ~ racegrp, data=helpmkh, center="median")
+
+#Two-variance F-test
+with(helpmkh, tapply(indtot, treat,  var, na.rm=TRUE))
+var.test(indtot ~ treat, alternative='two.sided', conf.level=.95,
+   data=helpmkh)
 ```
     
         Make a FIGURE of the group mean differences - either an error-bar plot or a series of boxplots one for each group to show the group differences in the outcome
