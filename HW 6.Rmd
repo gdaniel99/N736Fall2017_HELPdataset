@@ -1,0 +1,94 @@
+---
+title: "HW 6"
+author: "Gaea Daniel"
+date: "11/22/2017"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Assignment
+```{r}
+library(tidyverse)
+library(haven)
+
+helpdat <- haven::read_spss("helpmkh.sav")
+
+h1 <- helpdat %>%
+  select(g1b, homeless, age, female, pss_fr,
+         pcs, mcs, cesd, indtot)
+
+library(psych)
+psych::corr.test(h1, method="pearson")
+```
+Complete the following:
+1. Consider the continuous variable cesd as a predictor for g1b
+        a. run a logistic regression of the probability of suicidal thoughts (g1b) given their depressive symptoms scores (cesd)
+        
+```{r}
+m1 <- glm(g1b ~ cesd, data=h1,
+          family=binomial)
+
+m1
+summary(m1)
+coef(m1)
+exp(coef(m1))
+```      
+        
+        b. make a plot of the the predicted probability of suicidal thoughts (g1b) by the depressive symptoms scores (cesd)
+
+```{r}
+m1.predict <- predict(m1, newdata=h1,
+                      type="response")
+
+plot(h1$cesd, m1.predict)
+```
+
+        c. what value of the cesd leads to a probability of suicidal thoughts => 0.5? (hint: use the plot you just made) 
+        47.5
+
+```{r}
+#confusion matrix
+table(h1$g1b, m1.predict > 0.5)
+
+library(gmodels)
+CrossTable(h1$g1b, m1.predict > 0.5)
+```
+```{r}
+#To access R-commander
+library(Rcmdr)
+library(splines)
+library(RcmdrMisc)
+library(car)
+```
+2. Using variable selection methods, develop a logistic regression model for the probability of suicidal thoughts (g1b) considering all of these variables for possible inclusion: age, female, pss_fr, homeless, pcs, mcs, cesd, indtot
+        a. present the final model results
+
+```{r}
+names(help.spss) <- make.names(names(h1))
+GLM.1 <- glm(g1b ~ cesd, family=binomial(logit), data=h1)
+summary(GLM.1)
+exp(coef(GLM.1))  # Exponentiated coefficients ("odds ratios")
+GLM.2 <- glm(g1b ~ age + female + pss_fr + homeless + pcs + mcs 
+  + cesd + indtot, family=binomial(logit), data=h1)
+summary(GLM.2)
+exp(coef(GLM.2))  # Exponentiated coefficients ("odds ratios")
+stepwise(GLM.2, direction='forward', criterion='AIC')
+```
+```{r}
+library(olsrr)
+model <- lm(g1b ~ cesd + mcs + homeless + female + indtot + age, data = h1)
+ols_all_subset(model)
+```
+
+        b. write a few sentences describing your results including:
+            i. model fit
+            ii. model classification table results - remember to report the threshold used for the classification table - you can change it from 0.5 if you think a different threshold might work better
+            iii. odds ratios for each significant predictor in the model
+
+Stepwise model selection was used in R Commander. "Forward" was the chosen direction and "AIC" was the chosen criterion. As variables were added to the model, the AIC deceased. The model with all the variables included yielded the highest adjusted r^2.
