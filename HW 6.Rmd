@@ -26,9 +26,9 @@ h1 <- helpdat %>%
 library(psych)
 psych::corr.test(h1, method="pearson")
 ```
-Complete the following:
-1. Consider the continuous variable cesd as a predictor for g1b
-        a. run a logistic regression of the probability of suicidal thoughts (g1b) given their depressive symptoms scores (cesd)
+###Complete the following:
+####1. Consider the continuous variable cesd as a predictor for g1b
+#####a. run a logistic regression of the probability of suicidal thoughts (g1b) given their depressive symptoms scores (cesd)
         
 ```{r}
 m1 <- glm(g1b ~ cesd, data=h1,
@@ -40,7 +40,7 @@ coef(m1)
 exp(coef(m1))
 ```      
         
-        b. make a plot of the the predicted probability of suicidal thoughts (g1b) by the depressive symptoms scores (cesd)
+#####b. make a plot of the the predicted probability of suicidal thoughts (g1b) by the depressive symptoms scores (cesd)
 
 ```{r}
 m1.predict <- predict(m1, newdata=h1,
@@ -49,7 +49,7 @@ m1.predict <- predict(m1, newdata=h1,
 plot(h1$cesd, m1.predict)
 ```
 
-        c. what value of the cesd leads to a probability of suicidal thoughts => 0.5? (hint: use the plot you just made) 
+#####c. what value of the cesd leads to a probability of suicidal thoughts => 0.5? (hint: use the plot you just made) 
         47.5
 
 ```{r}
@@ -59,6 +59,21 @@ table(h1$g1b, m1.predict > 0.5)
 library(gmodels)
 CrossTable(h1$g1b, m1.predict > 0.5)
 ```
+
+```{r}
+library(ROCR)
+p <- predict(m1, newdata=h1, 
+             type="response")
+pr <- prediction(p, as.numeric(h1$g1b))
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+
+
 ```{r}
 #To access R-commander
 library(Rcmdr)
@@ -66,11 +81,11 @@ library(splines)
 library(RcmdrMisc)
 library(car)
 ```
-2. Using variable selection methods, develop a logistic regression model for the probability of suicidal thoughts (g1b) considering all of these variables for possible inclusion: age, female, pss_fr, homeless, pcs, mcs, cesd, indtot
-        a. present the final model results
+####2. Using variable selection methods, develop a logistic regression model for the probability of suicidal thoughts (g1b) considering all of these variables for possible inclusion: age, female, pss_fr, homeless, pcs, mcs, cesd, indtot
+#####a. present the final model results
 
 ```{r}
-names(help.spss) <- make.names(names(h1))
+names(h1) <- make.names(names(h1))
 GLM.1 <- glm(g1b ~ cesd, family=binomial(logit), data=h1)
 summary(GLM.1)
 exp(coef(GLM.1))  # Exponentiated coefficients ("odds ratios")
@@ -86,9 +101,28 @@ model <- lm(g1b ~ cesd + mcs + homeless + female + indtot + age, data = h1)
 ols_all_subset(model)
 ```
 
-        b. write a few sentences describing your results including:
-            i. model fit
-            ii. model classification table results - remember to report the threshold used for the classification table - you can change it from 0.5 if you think a different threshold might work better
-            iii. odds ratios for each significant predictor in the model
+```{r}
+#To determine how often the classifer is correct
+print((24+299)/(24+299+27+103))
 
-Stepwise model selection was used in R Commander. "Forward" was the chosen direction and "AIC" was the chosen criterion. As variables were added to the model, the AIC deceased. The model with all the variables included yielded the highest adjusted r^2.
+#To determine how often the classifer is incorrect
+print((27+103)/(24+299+27+103))
+
+#To determine how often the prediction is correct when the actual value is positive
+print(24/(103+24))
+
+#To determine how often the prediction is correct when the actual value is negative
+print(299/(299+27))
+```
+
+
+####b. write a few sentences describing your results including:
+#####i. model fit
+Stepwise model selection was used in R Commander. "Forward" was the chosen direction and "AIC" was the chosen criterion. As variables were added to the model, the AIC deceased. The model the included the variables age, female, homeless, mcs, cesd, and indtot yielded the highest adjusted r^2 (0.14484) and lowest AIC (471.3).
+
+#####ii. model classification table results - remember to report the threshold used for the classification table - you can change it from 0.5 if you think a different threshold might work better
+When the threshold used for the classification table is 0.5, the classifer is correct 71.3% of the time. When the actual value is positive, the prediction is correct 18.9% of the time. When the actual value is negative, the prediction is correct 91.7% of the time.
+
+#####iii. odds ratios for each significant predictor in the model
+For a one unit decrease in experiencing serious thoughts of suicide in the last 30 days (g1b), the odds of the total score of the CESD (cesd) increase by a factor of 0.041, the odds of the total score of the SF36 mental composite score (mcs) decrease by 0.033, the odds of one or more nights on the street or in a shelter in the past six months (homeless) increase by 0.565, the odds of being a female (female) increase by 0.764, the odds of the total score of the InDue (indtot) increase by 0.034, and the odds of age in years (age) decrease by 0.023.
+
