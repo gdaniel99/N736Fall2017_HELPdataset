@@ -1,0 +1,222 @@
+---
+title: "HW 7"
+author: "Gaea Daniel"
+date: "12/4/2017"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###1. Perform a repeated measures analysis of variance (RM-ANOVA) for the 5 CESD measurements across time by treatment group.
+####a. treat time as a continuous variable (not as a factor) - this is your WITHIN group effect
+####b. treat the treatment group treat as a factor - this is your BETWEEN group effect
+####c. TABLE: present the table of the intercept, time, treat and time*treat interaction effects including the tests of significance. [Remember this significance might change depending on the treatment group coding - try flipping the 0 and 1 and run the model again to see if the significance changes]
+####d. FIGURE: make a plot of the CESD means across time by group - if you can make it an error bar plot which has the means and CI’s (confidence intervals) or SE’s (standard errors)
+
+```{r}
+library(tidyverse)
+library(haven)
+
+helpdat <- haven::read_spss("helpmkh.sav")
+
+h1 <- helpdat %>%
+select(treat, cesd, cesd1, cesd2, cesd3, cesd4)
+
+#Correlation matrix between the 5 cesd measurements over time
+library(psych)
+psych::corr.test(h1[,2:6], method="pearson")
+
+#PAIRED t-test of first 2 timepoints to see if the scores are significantly changing across time WITHIN individuals
+t.test(h1$cesd, h1$cesd1, paired=TRUE)
+
+#Compute the change scores and compare the difference scores to 0
+h1 <- h1 %>%
+  mutate(diff_cesd_bl_1=cesd - cesd1)
+t.test(h1$diff_cesd_bl_1, mu=0)
+qqnorm(h1$diff_cesd_bl_1)
+
+#Repeated measures analysis of variance (RM-ANOVA) for the 5 CESD measurements across time by treatment group
+# add rowid to h1
+h1 <- h1 %>%
+  mutate(rowid=as.numeric(rownames(h1)))
+  
+h1long <- h1 %>%
+  gather(key=item,
+         value=value,
+         -c(treat,diff_cesd_bl_1,rowid))
+
+#Add a time variable to long format
+h1long <- h1long %>%
+  mutate(time=c(rep(0,453),
+                rep(1,453),
+                rep(2,453),
+                rep(3,453),
+                rep(4,453)))
+
+h1long_bl1 <- h1long %>%
+  filter(time<2) %>%
+  select(rowid,value,time,treat)
+
+library(car)
+rm1 <- aov(value~factor(time)+Error(factor(rowid)), 
+                data = h1long_bl1)
+summary(rm1)
+
+#Compare the 2 changes from BL to 6m for cesd and cesd1 between the 2 treat groups
+bartlett.test(h1$diff_cesd_bl_1~h1$treat)
+t.test(h1$diff_cesd_bl_1~h1$treat, var.equal=TRUE)
+
+#RM-ANOVA for the changes from BL to 6m BETWEEN the 2 treat groups; a comparison of the time*treat effect to the t-test above for the difference scores
+rm2 <- aov(value~(factor(time)*factor(treat))+
+             Error(factor(rowid)/(treat)), 
+           data = h1long_bl1)
+summary(rm2)
+
+#Plot of cesd and cesd1 scores by group to get an idea of trend across time (plot is cross sectional, not paired)
+ggplot(h1long_bl1, aes(x=factor(time), y=value)) + 
+  geom_boxplot() +
+  stat_summary(fun.y=mean, geom="point", shape=5, size=4) + 
+  xlab("Time: Baseline (0) and 6m (1)") +
+  ylab("CESD Scores") +
+  facet_wrap(~treat) +
+  ggtitle("Usual Care = 0; HELP Clinic = 1")
+
+```
+###2. Repeate the “repeated measures/longitudinal” analysis using a random intercepts MLM model
+####a. REMEMBER to restructure the data from WIDE to LONG format
+####b. TABLE: present the table of the intercept, time, treat and time*treat interaction effects including the tests of significance. [Remember this significance might change depending on the treatment group coding - try flipping the 0 and 1 and run the model again to see if the significance changes]
+
+```{r}
+library(tidyverse)
+library(haven)
+
+helpdat <- haven::read_spss("helpmkh.sav")
+h1 <- helpdat %>%
+  select(id, treat, cesd, cesd1, cesd2, cesd3, cesd4)
+
+# restructure into long format
+
+h1long <- h1 %>%
+  gather(key=item,
+         value=value,
+         -c(id,treat))
+
+names(h1long) <- c("id","treat","cesditem","cesdvalue")
+
+# add a time variable to long format
+h1long <- h1long %>%
+  mutate(time=c(rep(0,453),
+                rep(1,453),
+                rep(2,453),
+                rep(3,453),
+                rep(4,453)))
+
+# from the cookbook for R
+## Gives count, mean, standard deviation, standard error of the mean, and confidence interval (default 95%).
+##   data: a data frame.
+##   measurevar: the name of a column that contains the variable to be summariezed
+##   groupvars: a vector containing names of columns that contain grouping variables
+##   na.rm: a boolean that indicates whether to ignore NA's
+##   conf.interval: the percent range of the confidence interval (default is 95%)
+summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
+                      conf.interval=.95, .drop=TRUE) {
+  library(plyr)
+  
+  # New version of length which can handle NA's: if na.rm==T, don't count them
+  length2 <- function (x, na.rm=FALSE) {
+    if (na.rm) sum(!is.na(x))
+    else       length(x)
+  }
+  
+  # This does the summary. For each group's data frame, return a vector with
+  # N, mean, and sd
+  datac <- ddply(data, groupvars, .drop=.drop,
+                 .fun = function(xx, col) {
+                   c(N    = length2(xx[[col]], na.rm=na.rm),
+                     mean = mean   (xx[[col]], na.rm=na.rm),
+                     sd   = sd     (xx[[col]], na.rm=na.rm)
+                   )
+                 },
+                 measurevar
+  )
+  
+  # Rename the "mean" column    
+  datac <- rename(datac, c("mean" = measurevar))
+  
+  datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
+  
+  # Confidence interval multiplier for standard error
+  # Calculate t-statistic for confidence interval: 
+  # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
+  ciMult <- qt(conf.interval/2 + .5, datac$N-1)
+  datac$ci <- datac$se * ciMult
+  
+  return(datac)
+}
+
+h1long_nomiss <- na.omit(h1long)
+table(h1long_nomiss$time)
+
+h1se <- summarySE(h1long_nomiss, 
+                  measurevar="cesdvalue", 
+                  groupvars=c("time","treat"))
+
+ggplot(h1se, aes(x=time, y=cesdvalue)) + 
+  geom_errorbar(aes(ymin=cesdvalue-se, ymax=cesdvalue+se), width=.1) +
+  geom_line() +
+  geom_point() +
+  xlab("Time Points") +
+  ylab("Center for Epidemiological Studies Depression Score (CESD)") +
+  ggtitle("CESD Means and CI's Over Time") +
+  facet_wrap(~treat)
+
+# use nlme package
+library(nlme)
+
+lme1 <- lme(cesdvalue ~ time*treat,
+            data=h1long,
+            random= ~1 | id,
+            method="REML",
+            na.action=na.omit)
+# get summary - model coefficients
+# tests coefficients not equal to 0
+summary(lme1)
+
+# get anova tables - both
+# of these yield type III Sums of Squares
+anova.lme(lme1, type="marginal")
+car::Anova(lme1, type="III")
+
+# FYI - sequential SS or Type II SS
+anova.lme(lme1, type="sequential")
+car::Anova(lme1, type="II")
+
+# flip treat and run again
+h1long <- h1long %>%
+  mutate(treat_flip = as.numeric(treat==0))
+
+lme2 <- lme(cesdvalue ~ time*treat_flip,
+            data=h1long,
+            random= ~1 | id,
+            method="REML",
+            na.action=na.omit)
+# get summary - model coefficients
+# tests coefficients not equal to 0
+summary(lme2)
+
+# get anova tables - both
+# of these yield type III Sums of Squares
+anova.lme(lme2, type="marginal")
+car::Anova(lme2, type="III")
+```
+###3. Compare the results between the 2 approaches
+####a. compare the sample size differences
+The sample size for #1 (n=1422) is greater than the sample size for #2 (n=453).
+####b. why do you think the results are different or are similar?
+The sample sizes are different because #1 is looking at each individual sample and #2 is looking at groups of samples.
+
