@@ -217,6 +217,7 @@ car::Anova(lme2, type="III")
 ###3. Compare the results between the 2 approaches
 ####a. compare the sample size differences
 The sample size for #1 (n=1422) is greater than the sample size for #2 (n=453).
+
 ####b. why do you think the results are different or are similar?
 The sample sizes are different because #1 is looking at each individual sample and #2 is looking at groups of samples.
 
